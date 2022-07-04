@@ -179,6 +179,17 @@ class HAPiCLR_Unified(pl.LightningModule):
         backbone_args: dict,
         max_epochs: int,
         batch_size: int,
+        proj_hidden_dim: int, 
+        proj_output_dim: int, 
+        pixel_output_dim: int, 
+        pixel_hidden_dim: int, 
+
+        ## Contrastive Los 
+        scale_factor: int, 
+        temperature: float,
+
+
+
         optimizer: str,
         lars: bool,
         lr: float,
@@ -191,6 +202,8 @@ class HAPiCLR_Unified(pl.LightningModule):
         min_lr: float,
         warmup_start_lr: float,
         warmup_epochs: float,
+       
+       
         num_large_crops: int,
         num_small_crops: int,
         eta_lars: float = 1e-3,
@@ -286,6 +299,7 @@ class HAPiCLR_Unified(pl.LightningModule):
         self.knn_eval = knn_eval
         self.knn_k = knn_k
         self.channels_last = channels_last
+        
 
         # multicrop
         self.num_crops = self.num_large_crops + self.num_small_crops
@@ -309,7 +323,7 @@ class HAPiCLR_Unified(pl.LightningModule):
         ## Get the Backbone Architecture
         ##*************************************
        
-        assert backbone in BaseMethod._SUPPORTED_BACKBONES
+        assert backbone in HAPiCLR_Unified._SUPPORTED_BACKBONES
         self.base_model = self._SUPPORTED_BACKBONES[backbone]
         self.backbone_name = backbone
 
@@ -341,25 +355,31 @@ class HAPiCLR_Unified(pl.LightningModule):
             )
         else:
             self.classifier = nn.Linear(self.features_dim, self.num_classes)
+        
+        
         ##*************************************
         # MLP projection Head 
         ##*************************************
-
+        self.proj_hidden_dim=proj_hidden_dim
+        self.proj_output_dim=proj_output_dim
+        
         self.projector = nn.Sequential(
             Downsample(),
-            nn.Linear(self.features_dim, proj_hidden_dim),
+            nn.Linear(self.features_dim, self.proj_hidden_dim),
             nn.ReLU(),
-            nn.Linear(proj_hidden_dim, proj_output_dim),
+            nn.Linear(self.proj_hidden_dim, self.proj_output_dim),
         )
         self.downsample = nn.Sequential( Downsample())
         ##*************************************
         # Conv 1*1 projection Head 
         ##*************************************
+        self.pixel_hidden_dim=pixel_hidden_dim
+        self.pixel_output_dim=pixel_output_dim
+        #self.scale_factor = scale_factor
 
-        self.scale_factor = scale_factor
         self.upsample = nn.Upsample(scale_factor=scale_factor, mode='bilinear')
         self.indexer = Indexer()
-        self.convMLP = ConvMLP(self.features_dim, pixel_hidden_dim, pixel_output_dim, None)
+        self.convMLP = ConvMLP(self.features_dim, self.pixel_hidden_dim, self.pixel_output_dim, None)
 
         if self.knn_eval:
             self.knn = WeightedKNNClassifier(k=self.knn_k, distance_fx="euclidean")
@@ -383,7 +403,7 @@ class HAPiCLR_Unified(pl.LightningModule):
         parser = parent_parser.add_argument_group("base")
 
         # backbone args
-        SUPPORTED_BACKBONES = BaseMethod._SUPPORTED_BACKBONES
+        SUPPORTED_BACKBONES = HAPiCLR_Unified._SUPPORTED_BACKBONES
 
         parser.add_argument("--backbone", choices=SUPPORTED_BACKBONES, type=str)
         # extra args for resnet
@@ -567,7 +587,7 @@ class HAPiCLR_Unified(pl.LightningModule):
             "middle_feats": middle_feats, }
 
 
-    def _base_shared_step(self, X: torch.Tensor, targets: torch.Tensor) -> Dict:
+    def _base_shared_step(self, X: torch.Tensor, ) -> Dict:
         """Forwards a batch of images X and computes the classification loss, the logits, the
         features, acc@1 and acc@5.
 
@@ -581,13 +601,7 @@ class HAPiCLR_Unified(pl.LightningModule):
 
         out = self.base_forward(X)
         logits = out["logits"]
-
-        loss = F.cross_entropy(logits, targets, ignore_index=-1)
-        # handle when the number of classes is smaller than 5
-        top_k_max = min(5, logits.size(1))
-        acc1, acc5 = accuracy_at_k(logits, targets, top_k=(1, top_k_max))
-
-        return {**out, "loss": loss, "acc1": acc1, "acc5": acc5}
+        return out
 
     def training_step(self, batch: List[Any], batch_idx: int) -> Dict[str, Any]:
         """Training step for pytorch lightning. It does all the shared operations, such as
@@ -606,98 +620,34 @@ class HAPiCLR_Unified(pl.LightningModule):
             _, X, M_f, M_b, targets = batch
         
         except ValueError:
-            X, targets = batch
+           _, X, M_f, M_b = batch
 
         X = [X] if isinstance(X, torch.Tensor) else X
 
         # check that we received the desired number of crops
+        print(self.num_crops)
+        print(len(X))
         assert len(X) == self.num_crops
 
-        outs = [self._base_shared_step(x, targets) for x in X[: self.num_large_crops]]
+        outs = [self._base_shared_step(x) for x in X[: self.num_large_crops]]
         outs = {k: [out[k] for out in outs] for k in outs[0].keys()}
 
         if self.multicrop:
             outs["feats"].extend([self.backbone(x) for x in X[self.num_large_crops :]])
         # loss and stats
-        outs["loss"] = sum(outs["loss"]) / self.num_large_crops
-        outs["acc1"] = sum(outs["acc1"]) / self.num_large_crops
-        outs["acc5"] = sum(outs["acc5"]) / self.num_large_crops
-
-        feats=out["feats"]
+  
+        feats=outs["feats"]
         z = torch.cat([self.projector(f) for f in feats])
         z1= z[0]
         z2= z[1]
         contrastive_loss = self.nt_xent_loss(z1, z2, self.temperature)
         metrics = {
-            "train_class_loss": outs["loss"],
-            "train_acc1": outs["acc1"],
-            "train_acc5": outs["acc5"],   
             "contrastive_loss": contrastive_loss, 
             }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
-        if self.knn_eval:
-            targets = targets.repeat(self.num_large_crops)
-            mask = targets != -1
-            self.knn(
-                train_features=torch.cat(outs["feats"][: self.num_large_crops])[mask].detach(),
-                train_targets=targets[mask],
-            )
-
         return contrastive_loss
-
-    def validation_step(
-        self, batch: List[torch.Tensor], batch_idx: int, dataloader_idx: int = None
-    ) -> Dict[str, Any]:
-        """Validation step for pytorch lightning. It does all the shared operations, such as
-        forwarding a batch of images, computing logits and computing metrics.
-
-        Args:
-            batch (List[torch.Tensor]):a batch of data in the format of [img_indexes, X, Y].
-            batch_idx (int): index of the batch.
-
-        Returns:
-            Dict[str, Any]: dict with the batch_size (used for averaging), the classification loss
-                and accuracies.
-        """
-
-        X, targets = batch
-        batch_size = targets.size(0)
-
-        out = self._base_shared_step(X, targets)
-
-        if self.knn_eval and not self.trainer.sanity_checking:
-            self.knn(test_features=out.pop("feats").detach(), test_targets=targets.detach())
-
-        metrics = {
-            "batch_size": batch_size,
-            "val_loss": out["loss"],
-            "val_acc1": out["acc1"],
-            "val_acc5": out["acc5"],
-        }
-        return metrics
-
-    def validation_epoch_end(self, outs: List[Dict[str, Any]]):
-        """Averages the losses and accuracies of all the validation batches.
-        This is needed because the last batch can be smaller than the others,
-        slightly skewing the metrics.
-
-        Args:
-            outs (List[Dict[str, Any]]): list of outputs of the validation step.
-        """
-
-        val_loss = weighted_mean(outs, "val_loss", "batch_size")
-        val_acc1 = weighted_mean(outs, "val_acc1", "batch_size")
-        val_acc5 = weighted_mean(outs, "val_acc5", "batch_size")
-
-        log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
-
-        if self.knn_eval and not self.trainer.sanity_checking:
-            val_knn_acc1, val_knn_acc5 = self.knn.compute()
-            log.update({"val_knn_acc1": val_knn_acc1, "val_knn_acc5": val_knn_acc5})
-
-        self.log_dict(log, sync_dist=True)
 
     def nt_xent_loss(self, out_1, out_2, temperature, eps=1e-6):
             """

@@ -22,7 +22,8 @@ import argparse
 from typing import Any, Dict, List, Sequence
 
 import torch
-import torch.nn as nn
+
+from torch import Tensor, nn
 import numpy as np
 import math
 from solo.losses.mscrl import simclr_loss_func, mscrl_loss_func_V1, mscrl_loss_func_V2, mscrl_loss_func_V3, mscrl_loss_func_V4, pixel_lavel_ontrastive, nt_xent_loss, DCL_loss_func, pixel_lavel_ontrastive_DCL, pixel_lavel_ontrastive_new
@@ -37,22 +38,28 @@ import torch.distributed as dist
 # SyncFunction adding to gather all the batch tensors from others GPUs
 #************************************************************
 
+
+
 class SyncFunction(torch.autograd.Function):
-    """Gather tensors from all process, supporting backward propagation."""
+    @staticmethod
+    def forward(ctx, tensor):
+        ctx.batch_size = tensor.shape[0]
+
+        gathered_tensor = [torch.zeros_like(tensor) for _ in range(torch.distributed.get_world_size())]
+
+        torch.distributed.all_gather(gathered_tensor, tensor)
+        gathered_tensor = torch.cat(gathered_tensor, 0)
+
+        return gathered_tensor
 
     @staticmethod
-    def forward(ctx, input):
-        ctx.save_for_backward(input)
-        output = [torch.zeros_like(input) for _ in range(dist.get_world_size())]
-        dist.all_gather(output, input)
-        return tuple(output)
+    def backward(ctx, grad_output):
+        grad_input = grad_output.clone()
+        torch.distributed.all_reduce(grad_input, op=torch.distributed.ReduceOp.SUM, async_op=False)
 
-    @staticmethod
-    def backward(ctx, *grads):
-        (input,) = ctx.saved_tensors
-        grad_out = torch.zeros_like(input)
-        grad_out[:] = grads[dist.get_rank()]
-        return grad_out
+        idx_from = torch.distributed.get_rank() * ctx.batch_size
+        idx_to = (torch.distributed.get_rank() + 1) * ctx.batch_size
+        return grad_input[idx_from:idx_to]
 
 
 class Downsample(nn.Module):
@@ -174,7 +181,7 @@ class HAPiCLR(BaseMethod):
     #************************************
     @staticmethod
     def add_model_specific_args(parent_parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-        parent_parser = super(MSCRL, MSCRL).add_model_specific_args(parent_parser)
+        parent_parser = super(HAPiCLR, HAPiCLR).add_model_specific_args(parent_parser)
         parser = parent_parser.add_argument_group("mscrl")
 
         # projector
@@ -205,7 +212,7 @@ class HAPiCLR(BaseMethod):
                                   ]
         return super().learnable_params + extra_learnable_params
 
-        @property
+        
         
     def forward(self, X: torch.tensor, *args, **kwargs) -> Dict[str, Any]:
         """Performs the forward pass of the backbone, the projector.
@@ -223,41 +230,16 @@ class HAPiCLR(BaseMethod):
         out = super().forward(X_, *args, **kwargs)
         ## Output representation [batch,X1], [batch,X2]
         z = self.projector(out["feats"])
-
-        z_f , z_b = self.indexer(out["feats"])
+        z_f, z_b = self.indexer(out["feats"])
 
         z_f = self.projector(z_f)
         z_b = self.projector(z_b)
         
         return {**out, "z": z, "z_f": z_f, "z_b": z_b}
     
-    def _base_shared_step(self, X: torch.Tensor, targets: torch.Tensor) -> Dict:
-        """Forwards a batch of images X and computes the classification loss, the logits, the
-        features, acc@1 and acc@5.
-
-        Args:
-            X (torch.Tensor): batch of images in tensor format.
-            targets (torch.Tensor): batch of labels for X.
-
-        Returns:
-            Dict: dict containing the classification loss, logits, features, acc@1 and acc@5.
-        """
-
-        out = self.base_forward(X)
-        logits = out["logits"]
-
-        loss = F.cross_entropy(logits, targets, ignore_index=-1)
-        # handle when the number of classes is smaller than 5
-        top_k_max = min(5, logits.size(1))
-        acc1, acc5 = accuracy_at_k(logits, targets, top_k=(1, top_k_max))
-
-        return {**out, "loss": loss, "acc1": acc1, "acc5": acc5}
-
-
-
-    def shared_step(self, batch):
+    def shared_step(self, batch, batch_idx):
+        
         """Training step for SimCLR reusing BaseMethod training step.
-
         Args:
             batch (Sequence[Any]): a batch of data in the format of [img_indexes, [X], Y], where
             [X] is a list of size num_crops containing batches of images.
@@ -267,26 +249,27 @@ class HAPiCLR(BaseMethod):
         """
         
         indexes, X, M_f, M_b = batch
-        out = super().training_step(X)
+        out = super().training_step(X, batch_idx)
         class_loss = out["loss"]
+
         feats = out["feats"]
-        z = torch.cat([self.projector(f) for f in feats])
+        #print(feats.shape)
+        
+        z = [self.projector(f) for f in feats]
+        #z[[b, x1], [b, x2]]
+        #print(z.shape)
         # get projection representations
         z1 = z[0]
+        #print(z1.shape)
         z2 = z[1]
         loss = self.nt_xent_loss(z1, z2, self.temperature)
-        return loss
+    
+        return loss , class_loss
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor: 
-        loss= self.shared_step(batch)
-
+        loss, class_loss= self.shared_step(batch, batch_idx) 
        
-
-        
-        
-        loss= self.nt_xent_loss(z1, z2, self.temperature)
-
-
+        return loss + class_loss
 
     def nt_xent_loss(self, out_1, out_2, temperature, eps=1e-6):
         """
@@ -298,8 +281,10 @@ class HAPiCLR(BaseMethod):
         # out_1_dist: [batch_size * world_size, dim]
         # out_2_dist: [batch_size * world_size, dim]
         if torch.distributed.is_available() and torch.distributed.is_initialized():
+            print("Distributed_multi_GPUs")
             out_1_dist = SyncFunction.apply(out_1)
             out_2_dist = SyncFunction.apply(out_2)
+
         else:
             out_1_dist = out_1
             out_2_dist = out_2
