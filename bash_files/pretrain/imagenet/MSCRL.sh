@@ -1,0 +1,44 @@
+python3 ../../../main_pretrain.py \
+    --dataset imagenet_with_mask \
+    --backbone resnet50_MNCRL \
+    --data_dir /data1/1K_New \
+    --train_dir train \
+    --val_dir val \
+    --mask_dir train_binary_mask_by_USS \
+    --max_epochs 100 \
+    --gpus 0 \
+    --accelerator gpu \
+    --strategy ddp \
+    --sync_batchnorm \
+    --exclude_bias_n_norm \
+    --precision 16 \
+    --optimizer sgd \
+    --lars \
+    --grad_clip_lars \
+    --eta_lars 0.001 \
+    --exclude_bias_n_norm \
+    --scheduler warmup_cosine \
+    --lr 0.3 \
+    --weight_decay 1e-6 \
+    --batch_size 512 \
+    --num_workers 16 \
+    --crop_style Mask_boxes_0.3 \
+    --brightness 0.8 \
+    --contrast 0.8 \
+    --saturation 0.8 \
+    --hue 0.3 \
+    --num_crops_per_aug 2 \
+    --name imagenet-pixel_lavel_contrastive_new2_background-batch512-100epoch \
+    --project MFPLCL \
+    --entity mlbrl \
+    --wandb \
+    --save_checkpoint \
+    --method mscrl \
+    --temperature 0.2 \
+    --proj_hidden_dim 2048 \
+    --pixel_output_dim 2048 \
+    --checkpoint_dir /data1/MPLCL_ckpt \
+    --checkpoint_frequency 10 \
+    --loss_type  pixel_lavel_ontrastive_new_background \
+    --encoder_width 1 \
+    --channels_last

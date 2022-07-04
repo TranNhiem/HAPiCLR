@@ -1,0 +1,36 @@
+python3 ../../../main_pretrain.py \
+    --dataset imagenet \
+    --backbone resnet50 \
+    --data_dir /data1/1K_New \
+    --train_dir train \
+    --val_dir val \
+    --max_epochs 100 \
+    --gpus 6 \
+    --accelerator gpu \
+    --strategy ddp \
+    --sync_batchnorm \
+    --precision 16 \
+    --optimizer sgd \
+    --scheduler warmup_cosine \
+    --lr 0.5 \
+    --classifier_lr 0.1 \
+    --weight_decay 1e-5 \
+    --batch_size 512 \
+    --num_workers 16 \
+    --brightness 0.4 \
+    --contrast 0.4 \
+    --saturation 0.4 \
+    --hue 0.1 \
+    --num_crops_per_aug 2 \
+    --zero_init_residual \
+    --name simsiam-100ep-imagenet \
+    --entity mlbrl \
+    --project solo_MPLRCL \
+    --wandb \
+    --save_checkpoint \
+    --method simsiam \
+    --proj_hidden_dim 2048 \
+    --pred_hidden_dim 512 \
+    --proj_output_dim 2048 \
+    --channels_last \
+    --checkpoint_dir /data1/MPLCL_ckpt \

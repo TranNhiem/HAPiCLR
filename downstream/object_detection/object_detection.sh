@@ -1,0 +1,1 @@
+python train_net.py --config-file configs/coco_R_50_C4_2x.yaml --num-gpus 4 MODEL.WEIGHTS /data1/solo/downstream/object_detection/detect_weight/byol+loss_f-lr0.3-beta_cosine_V2_0.9-resnet50-imagenet-1000ep-mask-cropping0.3-mask-pooling-ep=99.pkl

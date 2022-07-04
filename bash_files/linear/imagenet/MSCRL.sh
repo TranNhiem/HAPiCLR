@@ -1,0 +1,24 @@
+python3 ../../../main_linear.py \
+    --dataset imagenet \
+    --backbone resnet50 \
+    --data_dir /data1/1K_New \
+    --train_dir train \
+    --val_dir val \
+    --max_epochs 90 \
+    --gpus 0,1 \
+    --accelerator gpu \
+    --strategy ddp \
+    --sync_batchnorm \
+    --precision 16 \
+    --optimizer sgd \
+    --scheduler step \
+    --lr 1.6 \
+    --lr_decay_steps 60 80 \
+    --weight_decay 0 \
+    --batch_size 2048 \
+    --num_workers 16 \
+    --pretrained_feature_extractor /data1/MPLCL_ckpt/moco_MPLCL/1m4tmena/imagenet-mocov2plus+pixel_level_contrastive_new_background_momentum-dim2048-100ep-batch512-resnet50-1m4tmena-ep=99.ckpt \
+    --name imagenet-mocov2plus+pixel_level_contrastive_new_background_momentum-batch512-100epoch-linear-eval \
+    --entity mlbrl \
+    --project MFPLCL \
+    --wandb

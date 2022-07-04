@@ -1,0 +1,25 @@
+python3 ../../../main_linear.py \
+    --dataset imagenet_with_mask \
+    --backbone resnet50_MNCRL \
+    --data_dir /data \
+    --train_dir train \
+    --val_dir val \
+    --mask_dir train_binary_mask_by_USS \
+    --max_epochs 80 \
+    --gpus 0 \
+    --accelerator gpu \
+    --strategy ddp \
+    --sync_batchnorm \
+    --precision 16 \
+    --optimizer sgd \
+    --scheduler step \
+    --lr 0.1 \
+    --lr_decay_steps 60 80 \
+    --weight_decay 0 \
+    --batch_size 1024 \
+    --num_workers 16 \
+    --pretrained_feature_extractor PATH \
+    --name byol-resnet50-imagenet-linear-eval \
+    --entity unitn-mlbrl \
+    --project MNCRL_linear_eval \
+    --wandb
