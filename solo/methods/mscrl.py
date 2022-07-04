@@ -30,6 +30,8 @@ from solo.losses.barlow import barlow_loss_func
 from solo.methods.base import BaseMethod
 import torch.nn.functional as F
 import torch.distributed as dist
+
+
 class SyncFunction(torch.autograd.Function):
     """Gather tensors from all process, supporting backward propagation."""
 
@@ -226,6 +228,8 @@ class MSCRL(BaseMethod):
         z_b = self.projector(z_b)
 
         return {**out, "z": z, "z_f": z_f, "z_b": z_b}
+
+
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor:
         """Training step for SimCLR reusing BaseMethod training step.
