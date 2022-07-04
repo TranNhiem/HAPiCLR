@@ -263,11 +263,17 @@ class HAPiCLR(BaseMethod):
         #print(z1.shape)
         z2 = z[1]
         loss = self.nt_xent_loss(z1, z2, self.temperature)
-    
+        
+      
         return loss , class_loss
+
 
     def training_step(self, batch: Sequence[Any], batch_idx: int) -> torch.Tensor: 
         loss, class_loss= self.shared_step(batch, batch_idx) 
+        metrics={
+            "Contrastive_loss": loss
+        }
+        self.log_dict(metrics, on_epoch=True, sync_dist=True)
        
         return loss + class_loss
 
