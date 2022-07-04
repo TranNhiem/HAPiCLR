@@ -7,7 +7,7 @@ python3 ../../../main_pretrain.py \
     --mask_dir train_binary_mask_by_USS \
     --subset_class_num 10 \
     --max_epochs 50 \
-    --gpus 0 \
+    --gpus 0,1 \
     --accelerator gpu \
     --strategy ddp \
     --sync_batchnorm \
@@ -30,12 +30,14 @@ python3 ../../../main_pretrain.py \
     --hue 0.3 \
     --num_crops_per_aug 2 \
     --name test_gpus \
-    --project MFPLCL \
+    --project simclr-test-MUL-GPU \
     --entity mlbrl \
     --wandb \
     --save_checkpoint \
-    --method hapiclr \
+    --method hapiclr_simple \
     --temperature 0.2 \
+    --proj_output_dim 128\
+    --proj_hidden_dim 2048 \
     --proj_hidden_dim 2048 \
     --pixel_output_dim 2048 \
     --checkpoint_dir /data1/MPLCL_ckpt \
