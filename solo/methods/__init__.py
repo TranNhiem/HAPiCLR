@@ -43,6 +43,7 @@ METHODS = {
     # base classes
     "base": BaseMethod,
     "linear": LinearModel,
+    'hapiclr': HAPiCLR_Unified, 
     # methods
     "barlow_twins": BarlowTwins,
     "byol": BYOL,
@@ -87,6 +88,7 @@ __all__ = [
     "mncrl",
     # "mncrl_edit",
     "mscrl",
+    "hapiclr"
     "moco_MPLCL",
 ]
 

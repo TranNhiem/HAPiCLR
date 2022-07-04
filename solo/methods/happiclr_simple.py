@@ -289,23 +289,28 @@ class HAPiCLR_Unified(pl.LightningModule):
 
         # multicrop
         self.num_crops = self.num_large_crops + self.num_small_crops
-
         # all the other parameters
         self.extra_args = kwargs
         print("num_class:",self.num_classes)
         # turn on multicrop if there are small crops
         self.multicrop = self.num_small_crops != 0
-
+        
+        ##*************************************
         # if accumulating gradient then scale lr
+        ##*************************************
         if self.accumulate_grad_batches:
             self.lr = self.lr * self.accumulate_grad_batches
             self.classifier_lr = self.classifier_lr * self.accumulate_grad_batches
             self.min_lr = self.min_lr * self.accumulate_grad_batches
             self.warmup_start_lr = self.warmup_start_lr * self.accumulate_grad_batches
 
+       
+        ##*************************************
+        ## Get the Backbone Architecture
+        ##*************************************
+       
         assert backbone in BaseMethod._SUPPORTED_BACKBONES
         self.base_model = self._SUPPORTED_BACKBONES[backbone]
-
         self.backbone_name = backbone
 
         # initialize backbone
@@ -316,20 +321,14 @@ class HAPiCLR_Unified(pl.LightningModule):
             kwargs["window_size"] = 4
 
         self.backbone = self.base_model(**kwargs)
+        
         if "resnet" in self.backbone_name:
+            
             self.features_dim = self.backbone.inplanes
-            # remove fc layer
-            if "MNCRL" not in self.backbone_name:
-                # self.backbone.avgpool = nn.Identity()
-                # #self.backbone = nn.Sequential(*list(self.backbone.modules())[:-3])
-                # self.backbone.fc = nn.Unflatten(1,(2048,7,7))
-                self.backbone.fc = nn.Identity()
-            # else:
-            #     self.backbone.fc = nn.Identity()
+            self.backbone.fc = nn.Identity()
+            
             if cifar:
-                self.backbone.conv1 = nn.Conv2d(
-                    3, 64, kernel_size=3, stride=1, padding=2, bias=False
-                )
+                self.backbone.conv1 = nn.Conv2d( 3, 64, kernel_size=3, stride=1, padding=2, bias=False)
                 self.backbone.maxpool = nn.Identity()
         else:
             self.features_dim = self.backbone.num_features
@@ -342,12 +341,33 @@ class HAPiCLR_Unified(pl.LightningModule):
             )
         else:
             self.classifier = nn.Linear(self.features_dim, self.num_classes)
+        ##*************************************
+        # MLP projection Head 
+        ##*************************************
+
+        self.projector = nn.Sequential(
+            Downsample(),
+            nn.Linear(self.features_dim, proj_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(proj_hidden_dim, proj_output_dim),
+        )
+        self.downsample = nn.Sequential( Downsample())
+        ##*************************************
+        # Conv 1*1 projection Head 
+        ##*************************************
+
+        self.scale_factor = scale_factor
+        self.upsample = nn.Upsample(scale_factor=scale_factor, mode='bilinear')
+        self.indexer = Indexer()
+        self.convMLP = ConvMLP(self.features_dim, pixel_hidden_dim, pixel_output_dim, None)
 
         if self.knn_eval:
             self.knn = WeightedKNNClassifier(k=self.knn_k, distance_fx="euclidean")
         if self.channels_last:
             cf.apply_channels_last(self.backbone)
             cf.apply_channels_last(self.classifier)
+    
+    
     @staticmethod
     def add_model_specific_args(parent_parser: ArgumentParser) -> ArgumentParser:
         """Adds shared basic arguments that are shared for all methods.
@@ -409,6 +429,19 @@ class HAPiCLR_Unified(pl.LightningModule):
         parser.add_argument("--min_lr", default=0.0, type=float)
         parser.add_argument("--warmup_start_lr", default=0.00003, type=float)
         parser.add_argument("--warmup_epochs", default=10, type=int)
+
+        # MLP Projector and Conv 1*1 Projector
+        parser.add_argument("--proj_output_dim", type=int, default=128)
+        parser.add_argument("--proj_hidden_dim", type=int, default=2048)
+        parser.add_argument("--pixel_output_dim", type=int, default=256)
+        parser.add_argument("--pixel_hidden_dim", type=int, default=2048)
+        parser.add_argument("--loss_type", type=str, default="byol+f_loss+b_loss")
+
+        # For Contrastive loss
+        parser.add_argument("--temperature", type=float, default=0.1)
+        parser.add_argument("--alpha", type=float, default=None)
+        parser.add_argument("--beta", type=str, default="0.5")
+        parser.add_argument("--scale_factor", type=int, default=None)
 
         # DALI only
         # uses sample indexes as labels and then gets the labels from a lookup table
@@ -510,7 +543,6 @@ class HAPiCLR_Unified(pl.LightningModule):
 
     def forward(self, *args, **kwargs) -> Dict:
         """Dummy forward, calls base forward."""
-
         return self.base_forward(*args, **kwargs)
 
     def base_forward(self, X: torch.Tensor) -> Dict:
@@ -527,12 +559,13 @@ class HAPiCLR_Unified(pl.LightningModule):
         except ValueError:
             feats = self.backbone(X)
             middle_feats = feats
+        
         logits = self.classifier(feats.detach())
         return {
             "logits": logits,
             "feats": feats,
-            "middle_feats": middle_feats,
-        }
+            "middle_feats": middle_feats, }
+
 
     def _base_shared_step(self, X: torch.Tensor, targets: torch.Tensor) -> Dict:
         """Forwards a batch of images X and computes the classification loss, the logits, the
@@ -571,6 +604,7 @@ class HAPiCLR_Unified(pl.LightningModule):
 
         try:
             _, X, M_f, M_b, targets = batch
+        
         except ValueError:
             X, targets = batch
 
@@ -584,17 +618,22 @@ class HAPiCLR_Unified(pl.LightningModule):
 
         if self.multicrop:
             outs["feats"].extend([self.backbone(x) for x in X[self.num_large_crops :]])
-
         # loss and stats
         outs["loss"] = sum(outs["loss"]) / self.num_large_crops
         outs["acc1"] = sum(outs["acc1"]) / self.num_large_crops
         outs["acc5"] = sum(outs["acc5"]) / self.num_large_crops
 
+        feats=out["feats"]
+        z = torch.cat([self.projector(f) for f in feats])
+        z1= z[0]
+        z2= z[1]
+        contrastive_loss = self.nt_xent_loss(z1, z2, self.temperature)
         metrics = {
             "train_class_loss": outs["loss"],
             "train_acc1": outs["acc1"],
-            "train_acc5": outs["acc5"],
-        }
+            "train_acc5": outs["acc5"],   
+            "contrastive_loss": contrastive_loss, 
+            }
 
         self.log_dict(metrics, on_epoch=True, sync_dist=True)
 
@@ -606,7 +645,7 @@ class HAPiCLR_Unified(pl.LightningModule):
                 train_targets=targets[mask],
             )
 
-        return outs
+        return contrastive_loss
 
     def validation_step(
         self, batch: List[torch.Tensor], batch_idx: int, dataloader_idx: int = None
@@ -660,3 +699,41 @@ class HAPiCLR_Unified(pl.LightningModule):
 
         self.log_dict(log, sync_dist=True)
 
+    def nt_xent_loss(self, out_1, out_2, temperature, eps=1e-6):
+            """
+            assume out_1 and out_2 are normalized
+            out_1: [batch_size, dim]
+            out_2: [batch_size, dim]
+            """
+            # gather representations in case of distributed training
+            # out_1_dist: [batch_size * world_size, dim]
+            # out_2_dist: [batch_size * world_size, dim]
+            if torch.distributed.is_available() and torch.distributed.is_initialized():
+                out_1_dist = SyncFunction.apply(out_1)
+                out_2_dist = SyncFunction.apply(out_2)
+            else:
+                out_1_dist = out_1
+                out_2_dist = out_2
+
+            # out: [2 * batch_size, dim]
+            # out_dist: [2 * batch_size * world_size, dim]
+            out = torch.cat([out_1, out_2], dim=0)
+            out_dist = torch.cat([out_1_dist, out_2_dist], dim=0)
+
+            # cov and sim: [2 * batch_size, 2 * batch_size * world_size]
+            # neg: [2 * batch_size]
+            cov = torch.mm(out, out_dist.t().contiguous())
+            sim = torch.exp(cov / temperature)
+            neg = sim.sum(dim=-1)
+
+            # from each row, subtract e^(1/temp) to remove similarity measure for x1.x1
+            row_sub = Tensor(neg.shape).fill_(math.e ** (1 / temperature)).to(neg.device)
+            neg = torch.clamp(neg - row_sub, min=eps)  # clamp for numerical stability
+
+            # Positive similarity, pos becomes [2 * batch_size]
+            pos = torch.exp(torch.sum(out_1 * out_2, dim=-1) / temperature)
+            pos = torch.cat([pos, pos], dim=0)
+
+            loss = -torch.log(pos / (neg + eps)).mean()
+
+            return loss

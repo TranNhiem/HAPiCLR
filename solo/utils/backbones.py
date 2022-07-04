@@ -766,10 +766,11 @@ class ResNet_MNCRL(ResNet):
         if self.middle_output == 4:
             middle_feature = x
         x = self.layer4(x)
-        #
-        # x = self.avgpool(feature_map)
+
+        # x = self.avgpool(x)
         # x = torch.flatten(x, 1)
         # x = self.fc(x)
+
         if self.middle_output != None:
             return  middle_feature, x
 
