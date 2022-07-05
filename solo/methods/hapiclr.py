@@ -19,7 +19,7 @@
 
 
 import argparse
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Sequence, Union, Tuple
 
 import torch
 
@@ -34,11 +34,16 @@ from torchvision.models import resnet18, resnet50
 import torch.nn.functional as F
 import torch.distributed as dist
 
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+from solo.utils.lars import LARSWrapper
+from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
+from solo.utils.distributed_util import gather_from_all
+from classy_vision.generic.distributed_util import get_cuda_device_index, get_rank
+from classy_vision.losses import ClassyLoss, register_loss
+
 #************************************************************
 # SyncFunction adding to gather all the batch tensors from others GPUs
 #************************************************************
-
-
 
 class SyncFunction(torch.autograd.Function):
     @staticmethod
@@ -137,7 +142,25 @@ class ConvMLP(nn.Module):
 loss_types = ['V0','V1','V2','V3','V4','pixel_lavel_ontrastive']
 
 class HAPiCLR(BaseMethod): 
-    def __init__(self, proj_output_dim: int, proj_hidden_dim: int, pixel_hidden_dim: int, pixel_output_dim: int, temperature: float, loss_type: str, alpha: int = None, scale_factor=None, **kwargs):
+    def __init__(self, 
+        # optimizer: str,
+        # lars: bool,
+        # lr: float,
+        # weight_decay: float,
+        # classifier_lr: float,
+        # exclude_bias_n_norm: bool,
+        # accumulate_grad_batches: Union[int, None],
+        # extra_optimizer_args: Dict,
+        # scheduler: str,
+        # min_lr: float,
+        # warmup_start_lr: float,
+        # warmup_epochs: float,
+    proj_output_dim: int, proj_hidden_dim: int,
+     pixel_hidden_dim: int, pixel_output_dim: int, temperature: float, 
+     loss_type: str, alpha: int = None, scale_factor=None, 
+   
+    
+    **kwargs):
         """Implements MSCRL.
         Args:
             proj_output_dim (int): number of dimensions of the projected features.
@@ -157,7 +180,7 @@ class HAPiCLR(BaseMethod):
         # MLP projector
         #**********************
         self.projector = nn.Sequential(
-            Downsample(),
+            #Downsample(),
             nn.Linear(self.features_dim, proj_hidden_dim),
             nn.BatchNorm1d(proj_hidden_dim),
             nn.ReLU(),
@@ -174,6 +197,21 @@ class HAPiCLR(BaseMethod):
         self.upsample = nn.Upsample(scale_factor=scale_factor, mode='bilinear')
         self.indexer = Indexer()
         self.convMLP = ConvMLP(self.features_dim, pixel_hidden_dim, pixel_output_dim, None)
+
+
+        # self.optimizer = optimizer
+        # self.lars = lars
+        # self.lr = lr
+        # self.weight_decay = weight_decay
+        # self.classifier_lr = classifier_lr
+        # self.exclude_bias_n_norm = exclude_bias_n_norm
+        # self.accumulate_grad_batches = accumulate_grad_batches
+        # self.extra_optimizer_args = extra_optimizer_args
+        # self.scheduler = scheduler
+        # self.lr_decay_steps = lr_decay_steps
+        # self.min_lr = min_lr
+        # self.warmup_start_lr = warmup_start_lr
+        # self.warmup_epochs = warmup_epochs
 
 
     #************************************
@@ -197,6 +235,31 @@ class HAPiCLR(BaseMethod):
         parser.add_argument("--beta", type=str, default="0.5")
         parser.add_argument("--scale_factor", type=int, default=None)
 
+        # optimizer
+        SUPPORTED_OPTIMIZERS = ["sgd", "adam", "adamw"]
+
+        #parser.add_argument("--optimizer", choices=SUPPORTED_OPTIMIZERS, type=str, required=True)
+        # parser.add_argument("--lars", action="store_true")
+        # parser.add_argument("--grad_clip_lars", action="store_true")
+        # parser.add_argument("--eta_lars", default=1e-3, type=float)
+        # parser.add_argument("--exclude_bias_n_norm", action="store_true")
+
+        # scheduler
+        SUPPORTED_SCHEDULERS = [
+            "reduce",
+            "cosine",
+            "warmup_cosine",
+            "step",
+            "exponential",
+            "none",
+        ]
+
+        # parser.add_argument("--scheduler", choices=SUPPORTED_SCHEDULERS, type=str, default="reduce")
+        # parser.add_argument("--lr_decay_steps", default=None, type=int, nargs="+")
+        # parser.add_argument("--min_lr", default=0.0, type=float)
+        # parser.add_argument("--warmup_start_lr", default=0.00003, type=float)
+        # parser.add_argument("--warmup_epochs", default=10, type=int)
+
         return parent_parser
     
     @property
@@ -211,8 +274,96 @@ class HAPiCLR(BaseMethod):
                                   {"params": self.convMLP.parameters()}
                                   ]
         return super().learnable_params + extra_learnable_params
+    
+    def exclude_from_wt_decay(self, named_params, weight_decay, skip_list=("bias", "bn")):
+        params = []
+        excluded_params = []
 
-        
+        for name, param in named_params:
+            if not param.requires_grad:
+                continue
+            elif any(layer_name in name for layer_name in skip_list):
+                excluded_params.append(param)
+            else:
+                params.append(param)
+
+        return [
+            {"params": params, "weight_decay": weight_decay},
+            {
+                "params": excluded_params,
+                "weight_decay": 0.0,
+            },
+        ]
+
+
+    def configure_optimizers(self) -> Tuple[List, List]:
+        """Collects learnable parameters and configures the optimizer and learning rate scheduler.
+
+        Returns:
+            Tuple[List, List]: two lists containing the optimizer and the scheduler.
+        """
+
+        # collect learnable parameters
+        idxs_no_scheduler = [
+            i for i, m in enumerate(self.learnable_params) if m.pop("static_lr", False)
+        ]
+
+        # select optimizer
+        if self.optimizer == "sgd":
+            optimizer = torch.optim.SGD
+        elif self.optimizer == "adam":
+            optimizer = torch.optim.Adam
+        elif self.optimizer == "adamw":
+            optimizer = torch.optim.AdamW
+        else:
+            raise ValueError(f"{self.optimizer} not in (sgd, adam, adamw)")
+
+        # create optimizer
+        optimizer = optimizer(
+            self.learnable_params,
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+            **self.extra_optimizer_args,
+        )
+        # optionally wrap with lars
+        if self.lars:
+            assert self.optimizer == "sgd", "LARS is only compatible with SGD."
+            optimizer = LARSWrapper(
+                optimizer,
+                eta=self.eta_lars,
+                clip=self.grad_clip_lars,
+                exclude_bias_n_norm=self.exclude_bias_n_norm,
+            )
+
+        if self.scheduler == "none":
+            return optimizer
+
+        if self.scheduler == "warmup_cosine":
+            scheduler = LinearWarmupCosineAnnealingLR(
+                optimizer,
+                warmup_epochs=self.warmup_epochs,
+                max_epochs=self.max_epochs,
+                warmup_start_lr=self.warmup_start_lr,
+                eta_min=self.min_lr,
+            )
+        elif self.scheduler == "cosine":
+            scheduler = CosineAnnealingLR(optimizer, self.max_epochs, eta_min=self.min_lr)
+        elif self.scheduler == "step":
+            scheduler = MultiStepLR(optimizer, self.lr_decay_steps)
+        else:
+            raise ValueError(f"{self.scheduler} not in (warmup_cosine, cosine, step)")
+
+        if idxs_no_scheduler:
+            partial_fn = partial(
+                static_lr,
+                get_lr=scheduler.get_lr,
+                param_group_indexes=idxs_no_scheduler,
+                lrs_to_replace=[self.lr] * len(idxs_no_scheduler),
+            )
+            scheduler.get_lr = partial_fn
+
+        return [optimizer], [scheduler]
+
         
     def forward(self, X: torch.tensor, *args, **kwargs) -> Dict[str, Any]:
         """Performs the forward pass of the backbone, the projector.
@@ -264,7 +415,6 @@ class HAPiCLR(BaseMethod):
         z2 = z[1]
         loss = self.nt_xent_loss(z1, z2, self.temperature)
         
-      
         return loss , class_loss
 
 
@@ -295,6 +445,7 @@ class HAPiCLR(BaseMethod):
             out_1_dist = out_1
             out_2_dist = out_2
 
+
         # out: [2 * batch_size, dim]
         # out_dist: [2 * batch_size * world_size, dim]
         out = torch.cat([out_1, out_2], dim=0)
@@ -303,6 +454,7 @@ class HAPiCLR(BaseMethod):
         # cov and sim: [2 * batch_size, 2 * batch_size * world_size]
         # neg: [2 * batch_size]
         cov = torch.mm(out, out_dist.t().contiguous())
+        print(cov)
         sim = torch.exp(cov / temperature)
         neg = sim.sum(dim=-1)
 
@@ -313,7 +465,6 @@ class HAPiCLR(BaseMethod):
         # Positive similarity, pos becomes [2 * batch_size]
         pos = torch.exp(torch.sum(out_1 * out_2, dim=-1) / temperature)
         pos = torch.cat([pos, pos], dim=0)
-
         loss = -torch.log(pos / (neg + eps)).mean()
-
+        print(loss)
         return loss

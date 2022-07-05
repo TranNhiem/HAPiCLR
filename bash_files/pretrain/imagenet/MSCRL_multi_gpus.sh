@@ -1,15 +1,13 @@
 python3 ../../../main_pretrain.py \
     --dataset imagenet_with_mask \
-    --backbone resnet50_MNCRL \
+    --backbone resnet50 \
     --data_dir /img_data/ \
     --train_dir train \
     --val_dir val \
     --mask_dir train_binary_mask_by_USS \
     --subset_class_num 10 \
     --max_epochs 100 \
-    --gpus 0,1 \
-    --accelerator gpu \
-    --strategy ddp \
+    --gpus 0, 1 \
     --sync_batchnorm \
     --exclude_bias_n_norm \
     --precision 16 \

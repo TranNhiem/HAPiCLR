@@ -92,8 +92,8 @@ __all__ = [
     "mncrl",
     # "mncrl_edit",
     "mscrl",
-    "hapiclr"
-    "hapiclr_simple"
+    "hapiclr",
+    "hapiclr_simple",
     "moco_MPLCL",
 ]
 

@@ -258,8 +258,7 @@ class BaseMethod(pl.LightningModule):
             self.classifier = nn.Sequential(
                 nn.AdaptiveAvgPool2d((1, 1)),
                 nn.Flatten(1),
-                nn.Linear(self.features_dim, self.num_classes),
-            )
+                nn.Linear(self.features_dim, self.num_classes),)
         else:
             self.classifier = nn.Linear(self.features_dim, self.num_classes)
 
