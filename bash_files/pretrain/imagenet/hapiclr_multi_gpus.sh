@@ -7,7 +7,9 @@ python3 ../../../main_pretrain.py \
     --mask_dir train_binary_mask_by_USS \
     --subset_class_num 10 \
     --max_epochs 100 \
-    --gpus 0, 1 \
+    --gpus 0,1 \
+    --accelerator gpu \
+    --strategy ddp \
     --sync_batchnorm \
     --exclude_bias_n_norm \
     --precision 16 \

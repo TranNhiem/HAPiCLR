@@ -54,7 +54,7 @@ from solo.utils.metrics import accuracy_at_k, weighted_mean
 from solo.utils.momentum import MomentumUpdater, initialize_momentum_params
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 from torchvision.models import resnet18, resnet50
-import composer.functional as cf
+# import composer.functional as cf
 
 def static_lr(
     get_lr: Callable, param_group_indexes: Sequence[int], lrs_to_replace: Sequence[float]
@@ -265,8 +265,9 @@ class BaseMethod(pl.LightningModule):
         if self.knn_eval:
             self.knn = WeightedKNNClassifier(k=self.knn_k, distance_fx="euclidean")
         if self.channels_last:
-            cf.apply_channels_last(self.backbone)
-            cf.apply_channels_last(self.classifier)
+            print("not implement channel last")
+            # cf.apply_channels_last(self.backbone)
+            # cf.apply_channels_last(self.classifier)
     @staticmethod
     def add_model_specific_args(parent_parser: ArgumentParser) -> ArgumentParser:
         """Adds shared basic arguments that are shared for all methods.
