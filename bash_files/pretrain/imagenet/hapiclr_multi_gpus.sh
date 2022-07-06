@@ -21,7 +21,7 @@ python3 ../../../main_pretrain.py \
     --scheduler warmup_cosine \
     --lr 0.3 \
     --weight_decay 1e-6 \
-    --batch_size 512 \ ## 128, 256, 512, 1024, 2048, (4096 -- Simclr)
+    --batch_size 512 \
     --num_workers 16 \
     --crop_style Mask_boxes_0.3 \
     --brightness 0.8 \

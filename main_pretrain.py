@@ -219,8 +219,7 @@ def main():
         enable_checkpointing=False,
         # sync_batchnorm= True if args.gpus > 1 else False,
         # gpus = [0,1,3],
-        # accelerator = "ddp2"
-        #fast_dev_run=True,
+        # fast_dev_run=True,
     )
     if args.dali:
         trainer.fit(model, val_dataloaders=val_loader, ckpt_path=ckpt_path)
