@@ -134,7 +134,8 @@ class HAPiCLR(BaseMethod):
         # warmup_epochs: float,
     proj_output_dim: int, proj_hidden_dim: int,
      pixel_hidden_dim: int, pixel_output_dim: int, temperature: float, 
-     loss_type: str, alpha: int = None, scale_factor=None, 
+     loss_type: str, alpha: int = None,  gather_distributed_gpus: bool= True,  scale_factor=None, 
+
     **kwargs):
         """Implements MSCRL.
         Args:
@@ -210,30 +211,12 @@ class HAPiCLR(BaseMethod):
         parser.add_argument("--beta", type=str, default="0.5")
         parser.add_argument("--scale_factor", type=int, default=None)
 
-        # optimizer
-        SUPPORTED_OPTIMIZERS = ["sgd", "adam", "adamw"]
+        # optimizer --> Inherence from base.py
+        
+        # scheduler --> Inherence from base.py
 
-        #parser.add_argument("--optimizer", choices=SUPPORTED_OPTIMIZERS, type=str, required=True)
-        # parser.add_argument("--lars", action="store_true")
-        # parser.add_argument("--grad_clip_lars", action="store_true")
-        # parser.add_argument("--eta_lars", default=1e-3, type=float)
-        # parser.add_argument("--exclude_bias_n_norm", action="store_true")
-
-        # scheduler
-        SUPPORTED_SCHEDULERS = [
-            "reduce",
-            "cosine",
-            "warmup_cosine",
-            "step",
-            "exponential",
-            "none",
-        ]
-
-        # parser.add_argument("--scheduler", choices=SUPPORTED_SCHEDULERS, type=str, default="reduce")
-        # parser.add_argument("--lr_decay_steps", default=None, type=int, nargs="+")
-        # parser.add_argument("--min_lr", default=0.0, type=float)
-        # parser.add_argument("--warmup_start_lr", default=0.00003, type=float)
-        # parser.add_argument("--warmup_epochs", default=10, type=int)
+        # For gather embedding from other GPUs
+        parser.add_argument("--gather_distributed_gpus", type=bool, default=True, help="True If training with >2 else False"))
 
         return parent_parser
     

@@ -1,13 +1,14 @@
 python3 ../../../main_pretrain.py \
     --dataset imagenet_with_mask \
     --backbone resnet50 \
-    --data_dir /img_data/ \
+    --data_dir /data1/1K_New  \
     --train_dir train \
     --val_dir val \
     --mask_dir train_binary_mask_by_USS \
-    --subset_class_num 10 \
+    --subset_class_num 1000 \
     --max_epochs 100 \
     --gpus 0,1 \
+    --gather_distributed_gpus \
     --accelerator gpu \
     --strategy ddp \
     --sync_batchnorm \
@@ -29,8 +30,8 @@ python3 ../../../main_pretrain.py \
     --saturation 0.8 \
     --hue 0.3 \
     --num_crops_per_aug 2 \
-    --name simclr_2gpu_eps_1e-8 \
-    --project simclr-test-MUL-GPU \
+    --name simclr_baseline_batch_1024 \
+    --project MFPLCL  \
     --entity mlbrl \
     --wandb \
     --save_checkpoint \
@@ -38,10 +39,9 @@ python3 ../../../main_pretrain.py \
     --temperature 0.2 \
     --proj_output_dim 128\
     --proj_hidden_dim 2048 \
-    --proj_hidden_dim 2048 \
     --pixel_output_dim 2048 \
     --checkpoint_dir /data1/MPLCL_ckpt \
-    --checkpoint_frequency 10 \
+    --checkpoint_frequency 20 \
     --loss_type  pixel_lavel_ontrastive_new_background \
     --encoder_width 1 \
     --channels_last

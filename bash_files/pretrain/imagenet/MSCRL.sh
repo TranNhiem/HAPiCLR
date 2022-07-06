@@ -6,7 +6,7 @@ python3 ../../../main_pretrain.py \
     --val_dir val \
     --mask_dir train_binary_mask_by_USS \
     --max_epochs 100 \
-    --gpus 0 \
+    --gpus 0,1\
     --accelerator gpu \
     --strategy ddp \
     --sync_batchnorm \
