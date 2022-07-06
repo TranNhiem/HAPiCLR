@@ -2,7 +2,7 @@ from typing import Tuple, Optional
 
 import torch
 import torch.distributed as dist
-
+from solo.utils.misc import FilterInfNNan
 
 ### Gather Object from Pytorch Lightning 
 class SyncFunction(torch.autograd.Function):

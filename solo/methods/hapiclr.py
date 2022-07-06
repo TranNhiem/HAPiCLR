@@ -19,23 +19,15 @@
 
 
 import argparse
-from typing import Any, Dict, List, Sequence, Union, Tuple
-
 import torch
-
-from torch import Tensor, nn
 import numpy as np
 import math
-from solo.losses.mscrl import simclr_loss_func, mscrl_loss_func_V1, mscrl_loss_func_V2, mscrl_loss_func_V3, mscrl_loss_func_V4, pixel_lavel_ontrastive, nt_xent_loss, DCL_loss_func, pixel_lavel_ontrastive_DCL, pixel_lavel_ontrastive_new
-from solo.losses.byol import byol_loss_func
-from solo.losses.barlow import barlow_loss_func
+from torch import Tensor, nn
 from solo.methods.base import BaseMethod
-from torchvision.models import resnet18, resnet50
 import torch.nn.functional as F
-import torch.distributed as dist
-from solo.utils.misc import FilterInfNNan
-from solo.losses.nt_xent_loss import NTXentLoss
+from typing import Any, Dict, List, Sequence, Union, Tuple
 
+from solo.losses.nt_xent_loss import NTXentLoss
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from solo.utils.lars import LARSWrapper
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
@@ -44,7 +36,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 # from classy_vision.losses import ClassyLoss, register_loss
 
 
-from pl_bolts.models.self_supervised.resnets import resnet18, resnet50
+
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
 #************************************************************
