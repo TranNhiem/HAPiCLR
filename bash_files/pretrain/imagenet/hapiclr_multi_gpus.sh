@@ -19,9 +19,9 @@ python3 ../../../main_pretrain.py \
     --eta_lars 0.001 \
     --exclude_bias_n_norm \
     --scheduler warmup_cosine \
-    --lr 0.15 \
+    --lr 0.3 \
     --weight_decay 1e-6 \
-    --batch_size 512 \
+    --batch_size 512 \ ## 128, 256, 512, 1024, 2048, (4096 -- Simclr)
     --num_workers 16 \
     --crop_style Mask_boxes_0.3 \
     --brightness 0.8 \
@@ -29,7 +29,7 @@ python3 ../../../main_pretrain.py \
     --saturation 0.8 \
     --hue 0.3 \
     --num_crops_per_aug 2 \
-    --name simclr_2gpu \
+    --name simclr_2gpu_eps_1e-8 \
     --project simclr-test-MUL-GPU \
     --entity mlbrl \
     --wandb \

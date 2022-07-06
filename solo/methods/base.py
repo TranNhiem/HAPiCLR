@@ -523,9 +523,7 @@ class BaseMethod(pl.LightningModule):
             mask = targets != -1
             self.knn(
                 train_features=torch.cat(outs["feats"][: self.num_large_crops])[mask].detach(),
-                train_targets=targets[mask],
-            )
-
+                train_targets=targets[mask],)
         return outs
 
     def validation_step(

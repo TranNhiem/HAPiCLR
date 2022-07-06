@@ -44,7 +44,8 @@ class NTXentLoss(MemoryBankModule):
                  temperature: float = 0.5,
                  memory_bank_size: int = 0,
                  gather_distributed: bool = False, 
-                 eps: float=1e-6#1e-8, 
+                 eps: float=1e-6#1e-8,1e-9 
+                 
                  ):
         super(NTXentLoss, self).__init__(size=memory_bank_size)
         self.temperature = temperature
@@ -118,7 +119,7 @@ class NTXentLoss(MemoryBankModule):
             # views of the same image
             if self.gather_distributed and dist.world_size() > 1:
                 print('gather tensor from GPUs')
-                # gather hidden representations from other processes
+                #gather hidden representations from other processes
                 out0_large = torch.cat(dist.gather(out0), 0)
                 out1_large = torch.cat(dist.gather(out1), 0)
                 print("Gather embedding from GPUs size: ",out0_large.shape)
@@ -173,7 +174,7 @@ class NTXentLoss(MemoryBankModule):
         # cov and sim: [2 * batch_size, 2 * batch_size * world_size]
         # neg: [2 * batch_size]
         cov = torch.mm(out, out_dist.t().contiguous())
-        print(cov.shape)
+        #print(cov.shape)
         sim = torch.exp(cov / self.temperature)
         neg = sim.sum(dim=-1)
 

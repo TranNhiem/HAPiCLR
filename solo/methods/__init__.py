@@ -36,7 +36,7 @@ from solo.methods.vibcreg import VIbCReg
 from solo.methods.vicreg import VICReg
 from solo.methods.wmse import WMSE
 from solo.methods.mncrl import MNCRL
-from solo.methods.hapiclr_simple import HAPiCLR_Unified
+#from solo.methods.hapiclr_simple import HAPiCLR_Unified
 from solo.methods.hapiclr import HAPiCLR
 
 # from solo.methods.mncrl_edit import MNCRL_edit
@@ -46,7 +46,7 @@ METHODS = {
     # base classes
     "base": BaseMethod,
     "linear": LinearModel,
-    'hapiclr': HAPiCLR_Unified, 
+    #hapiclr': HAPiCLR_Unified, 
     'hapiclr_simple': HAPiCLR,
     # methods
     "barlow_twins": BarlowTwins,
@@ -93,7 +93,7 @@ __all__ = [
     # "mncrl_edit",
     "mscrl",
     "hapiclr",
-    "hapiclr_simple",
+   # "hapiclr_simple",
     "moco_MPLCL",
 ]
 

@@ -214,9 +214,10 @@ def main():
     trainer = Trainer.from_argparse_args(
         args,
         logger=wandb_logger if args.wandb else None,
+        #strategy= None,
         callbacks=callbacks,
         enable_checkpointing=False,
-        sync_batchnorm=True,
+        # sync_batchnorm= True if args.gpus > 1 else False,
         # gpus = [0,1,3],
         # accelerator = "ddp2"
         #fast_dev_run=True,
