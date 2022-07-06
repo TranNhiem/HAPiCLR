@@ -43,6 +43,10 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 # from classy_vision.generic.distributed_util import get_cuda_device_index, get_rank
 # from classy_vision.losses import ClassyLoss, register_loss
 
+
+from pl_bolts.models.self_supervised.resnets import resnet18, resnet50
+from pl_bolts.optimizers.lars import LARS
+from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
 #************************************************************
 # SyncFunction adding to gather all the batch tensors from others GPUs
 #************************************************************

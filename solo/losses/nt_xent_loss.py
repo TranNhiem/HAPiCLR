@@ -1,5 +1,6 @@
 import torch
-import torch.nn as nn
+import math
+from torch import Tensor, nn
 
 from solo.utils import dist
 from solo.losses.memory_bank import MemoryBankModule
@@ -42,12 +43,14 @@ class NTXentLoss(MemoryBankModule):
     def __init__(self,
                  temperature: float = 0.5,
                  memory_bank_size: int = 0,
-                 gather_distributed: bool = False):
+                 gather_distributed: bool = False, 
+                 eps: float=1e-6#1e-8, 
+                 ):
         super(NTXentLoss, self).__init__(size=memory_bank_size)
         self.temperature = temperature
         self.gather_distributed = gather_distributed
         self.cross_entropy = nn.CrossEntropyLoss(reduction="mean")
-        self.eps = 1e-8
+        self.eps = eps
 
         if abs(self.temperature) < self.eps:
             raise ValueError('Illegal temperature: abs({}) < 1e-8'
@@ -73,6 +76,7 @@ class NTXentLoss(MemoryBankModule):
 
         device = out0.device
         batch_size, _ = out0.shape
+        print("This is batch single GPU", batch_size)
 
         # normalize the output to length 1
         out0 = nn.functional.normalize(out0, dim=1)
@@ -113,9 +117,12 @@ class NTXentLoss(MemoryBankModule):
             # and create diagonal mask that only selects similarities between
             # views of the same image
             if self.gather_distributed and dist.world_size() > 1:
+                print('gather tensor from GPUs')
                 # gather hidden representations from other processes
                 out0_large = torch.cat(dist.gather(out0), 0)
                 out1_large = torch.cat(dist.gather(out1), 0)
+                print("Gather embedding from GPUs size: ",out0_large.shape)
+
                 diag_mask = dist.eye_rank(batch_size, device=out0.device)
             else:
                 # single process
@@ -123,29 +130,63 @@ class NTXentLoss(MemoryBankModule):
                 out1_large = out1
                 diag_mask = torch.eye(batch_size, device=out0.device, dtype=torch.bool)
 
-            # calculate similiarities
-            # here n = batch_size and m = batch_size * world_size
-            # the resulting vectors have shape (n, m)
-            logits_00 = torch.einsum('nc,mc->nm', out0, out0_large) / self.temperature
-            logits_01 = torch.einsum('nc,mc->nm', out0, out1_large) / self.temperature
-            logits_10 = torch.einsum('nc,mc->nm', out1, out0_large) / self.temperature
-            logits_11 = torch.einsum('nc,mc->nm', out1, out1_large) / self.temperature
+
+        #-------------------------------------------------
+        # 1st Calculate the Loss Using  Naive Approach
+        #-------------------------------------------------
+
+        #     # calculate similiarities
+        #     # here n = batch_size and m = batch_size * world_size
+        #     # the resulting vectors have shape (n, m)
+        #     logits_00 = torch.einsum('nc,mc->nm', out0, out0_large) / self.temperature
+        #     logits_01 = torch.einsum('nc,mc->nm', out0, out1_large) / self.temperature
+        #     logits_10 = torch.einsum('nc,mc->nm', out1, out0_large) / self.temperature
+        #     logits_11 = torch.einsum('nc,mc->nm', out1, out1_large) / self.temperature
             
-            # remove simliarities between same views of the same image
-            logits_00 = logits_00[~diag_mask].view(batch_size, -1)
-            logits_11 = logits_11[~diag_mask].view(batch_size, -1)
+        #     # remove simliarities between same views of the same image
+        #     logits_00 = logits_00[~diag_mask].view(batch_size, -1)
+        #     logits_11 = logits_11[~diag_mask].view(batch_size, -1)
 
-            # concatenate logits
-            # the logits tensor in the end has shape (2*n, 2*m-1)
-            logits_0100 = torch.cat([logits_01, logits_00], dim=1)
-            logits_1011 = torch.cat([logits_10, logits_11], dim=1)
-            logits = torch.cat([logits_0100, logits_1011], dim=0)
+        #     # concatenate logits
+        #     # the logits tensor in the end has shape (2*n, 2*m-1)
+        #     logits_0100 = torch.cat([logits_01, logits_00], dim=1)
+        #     logits_1011 = torch.cat([logits_10, logits_11], dim=1)
+        #     logits = torch.cat([logits_0100, logits_1011], dim=0)
 
-            # create labels
-            labels = torch.arange(batch_size, device=device, dtype=torch.long)
-            labels = labels + dist.rank() * batch_size
-            labels = labels.repeat(2)
+        #     # create labels
+        #     labels = torch.arange(batch_size, device=device, dtype=torch.long)
+        #     labels = labels + dist.rank() * batch_size
+        #     labels = labels.repeat(2)
 
-        loss = self.cross_entropy(logits, labels)
+        # loss = self.cross_entropy(logits, labels)
+
+
+        #-------------------------------------------------
+        # Calculate the Loss Using Pylightning Design
+        #-------------------------------------------------
+        
+        # out: [2 * batch_size, dim]
+        # out_dist: [2 * batch_size * world_size, dim]
+        out = torch.cat([out0, out1], dim=0)
+        out_dist = torch.cat([out0_large, out1_large], dim=0)
+
+        # cov and sim: [2 * batch_size, 2 * batch_size * world_size]
+        # neg: [2 * batch_size]
+        cov = torch.mm(out, out_dist.t().contiguous())
+        print(cov.shape)
+        sim = torch.exp(cov / self.temperature)
+        neg = sim.sum(dim=-1)
+
+        # from each row, subtract e^(1/temp) to remove similarity measure for x1.x1
+        row_sub = Tensor(neg.shape).fill_(math.e ** (1 / self.temperature)).to(neg.device)
+        neg = torch.clamp(neg - row_sub, min=self.eps)  # clamp for numerical stability
+
+        # Positive similarity, pos becomes [2 * batch_size]
+        pos = torch.exp(torch.sum(out0 * out1, dim=-1) / self.temperature)
+        pos = torch.cat([pos, pos], dim=0)
+
+        loss = -torch.log(pos / (neg + self.eps)).mean()
+
+        print(loss)
 
         return loss

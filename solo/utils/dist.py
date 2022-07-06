@@ -5,7 +5,6 @@ import torch.distributed as dist
 
 class GatherLayer(torch.autograd.Function):
     """Gather tensors from all processes, supporting backward propagation.
-    
     This code was taken and adapted from here:
     https://github.com/Spijkervet/SimCLR
     

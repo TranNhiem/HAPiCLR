@@ -146,7 +146,7 @@ def main():
             name=args.name,
             project=args.project,
             entity=args.entity,
-            offline=args.offline,
+            offline= args.offline,
         )
         #wandb_logger.watch(model, log="gradients", log_freq=100)
         wandb_logger.log_hyperparams(args)
@@ -216,8 +216,10 @@ def main():
         logger=wandb_logger if args.wandb else None,
         callbacks=callbacks,
         enable_checkpointing=False,
+        sync_batchnorm=True,
         # gpus = [0,1,3],
         # accelerator = "ddp2"
+        #fast_dev_run=True,
     )
     if args.dali:
         trainer.fit(model, val_dataloaders=val_loader, ckpt_path=ckpt_path)
