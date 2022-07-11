@@ -7,8 +7,8 @@ python3 ../../../main_pretrain.py \
     --mask_dir train_binary_mask_by_USS \
     --subset_class_num 1000 \
     --max_epochs 100 \
-    --gpus 0,1 \
-    --gather_distributed_gpus \
+    --gpus 2,3,5,6  \
+    --gather_distributed_gpus True \
     --accelerator gpu \
     --strategy ddp \
     --sync_batchnorm \
@@ -30,7 +30,7 @@ python3 ../../../main_pretrain.py \
     --saturation 0.8 \
     --hue 0.3 \
     --num_crops_per_aug 2 \
-    --name simclr_baseline_batch_1024 \
+    --name simclr_baseline_batch_2048 \
     --project MFPLCL  \
     --entity mlbrl \
     --wandb \

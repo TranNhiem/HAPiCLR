@@ -77,7 +77,8 @@ class NTXentLoss(MemoryBankModule):
 
         device = out0.device
         batch_size, _ = out0.shape
-        print("This is batch single GPU", batch_size)
+        #-----Debuging the batch size multi-gpus training---------
+        #print("This is batch single GPU", batch_size)
 
         # normalize the output to length 1
         out0 = nn.functional.normalize(out0, dim=1)
@@ -118,10 +119,12 @@ class NTXentLoss(MemoryBankModule):
             # and create diagonal mask that only selects similarities between
             # views of the same image
             if self.gather_distributed and dist.world_size() > 1:
+                # ----------- Debuging Multi-GPUs training ----------
                 print('gather tensor from GPUs')
                 #gather hidden representations from other processes
                 out0_large = torch.cat(dist.gather(out0), 0)
                 out1_large = torch.cat(dist.gather(out1), 0)
+                # ------------ Debuging Multi-GPUs training ------------
                 print("Gather embedding from GPUs size: ",out0_large.shape)
 
                 diag_mask = dist.eye_rank(batch_size, device=out0.device)
