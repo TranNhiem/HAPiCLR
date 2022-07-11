@@ -216,7 +216,7 @@ class HAPiCLR(BaseMethod):
         # scheduler --> Inherence from base.py
 
         # For gather embedding from other GPUs
-        parser.add_argument("--gather_distributed_gpus", type=bool, default=True, help="True If training with >2 else False"))
+        parser.add_argument("--gather_distributed_gpus", type=bool, default=True, help="True If training with >2 else False")
 
         return parent_parser
     
