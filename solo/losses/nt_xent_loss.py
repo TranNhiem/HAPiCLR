@@ -43,7 +43,7 @@ class NTXentLoss(MemoryBankModule):
     def __init__(self,
                  temperature: float = 0.5,
                  memory_bank_size: int = 0,
-                 gather_distributed: bool = False, 
+                 gather_distributed: bool = True, 
                  eps: float=1e-6#1e-8,1e-9 
                  
                  ):
@@ -120,12 +120,12 @@ class NTXentLoss(MemoryBankModule):
             # views of the same image
             if self.gather_distributed and dist.world_size() > 1:
                 # ----------- Debuging Multi-GPUs training ----------
-                print('gather tensor from GPUs')
+                #print('gather tensor from GPUs')
                 #gather hidden representations from other processes
                 out0_large = torch.cat(dist.gather(out0), 0)
                 out1_large = torch.cat(dist.gather(out1), 0)
                 # ------------ Debuging Multi-GPUs training ------------
-                print("Gather embedding from GPUs size: ",out0_large.shape)
+                #print("Gather embedding from GPUs size: ",out0_large.shape)
 
                 diag_mask = dist.eye_rank(batch_size, device=out0.device)
             else:
@@ -191,6 +191,6 @@ class NTXentLoss(MemoryBankModule):
 
         loss = -torch.log(pos / (neg + self.eps)).mean()
 
-        print(loss)
+        #print(loss)
 
         return loss

@@ -37,7 +37,7 @@ python3 ../../../main_pretrain.py \
     --save_checkpoint \
     --method hapiclr_simple \
     --temperature 0.2 \
-    --proj_output_dim 128\
+    --proj_output_dim 256\
     --proj_hidden_dim 2048 \
     --pixel_output_dim 2048 \
     --checkpoint_dir /data1/MPLCL_ckpt \
