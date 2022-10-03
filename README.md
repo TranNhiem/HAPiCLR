@@ -143,7 +143,7 @@ update soon
 
 ## Known issues
 
-* **Pretrained models / Checkpoints**: HARL are pretrained with different weight decays, so the pretrained models from the two versions have very different weight norm scales. For fine-tuning the pretrained models from both versions, it is fine if you use an LARS optimizer, but it requires very different hyperparameters (e.g. learning rate, weight decay) if you use the momentum optimizer. So for the latter case, you may want to either search for very different hparams according to which version used, or re-scale th weight (i.e. conv `kernel` parameters of `base_model` in the checkpoints) to make sure they're roughly in the same scale.
+* **Pretrained models / Checkpoints**: Multi-GPUs training decreasing performance --> 
 
 ## Citation
 
