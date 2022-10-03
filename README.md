@@ -160,12 +160,12 @@ Implementations in Tensorflow 2:
 ## Citation
 
 `
-@article{Tran2022HeuristicAR,
-  title={Heuristic Attention Representation Learning for Self-Supervised Pretraining},
-  author={Van-Nhiem Tran and Shenxiu Liu and Yung-hui Li and Jia-Ching Wang},
-  journal={Sensors (Basel, Switzerland)},
+@article{T,
+  title={Heuristic Attention Pixel-level Contrastive Loss Representation Learning for Self-Supervised Pretraining},
+  author={},
+  journal={},
   year={2022},
-  volume={22}
+  volume={}
 }
 `
 
