@@ -29,14 +29,14 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from solo.args.setup import parse_args_knn
-from solo.methods import METHODS
-from solo.utils.classification_dataloader import (
+from HAPiCLR.args.setup import parse_args_knn
+from HAPiCLR.methods import METHODS
+from HAPiCLR.utils.classification_dataloader import (
     prepare_dataloaders,
     prepare_datasets,
     prepare_transforms,
 )
-from solo.utils.knn import WeightedKNNClassifier
+from HAPiCLR.utils.knn import WeightedKNNClassifier
 
 
 @torch.no_grad()

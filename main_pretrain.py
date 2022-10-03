@@ -24,12 +24,12 @@ from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 
-from solo.args.setup import parse_args_pretrain
-from solo.methods import METHODS
-from solo.utils.auto_resumer import AutoResumer
+from HAPiCLR.args.setup import parse_args_pretrain
+from HAPiCLR.methods import METHODS
+from HAPiCLR.utils.auto_resumer import AutoResumer
 
 try:
-    from solo.methods.dali import PretrainABC
+    from HAPiCLR.methods.dali import PretrainABC
 except ImportError as e:
     print(e)
     _dali_avaliable = False
@@ -37,7 +37,7 @@ else:
     _dali_avaliable = True
 
 try:
-    from solo.utils.auto_umap import AutoUMAP
+    from HAPiCLR.utils.auto_umap import AutoUMAP
 except ImportError:
     _umap_available = False
 else:
@@ -45,16 +45,16 @@ else:
 
 import types
 
-from solo.utils.checkpointer import Checkpointer
-from solo.utils.classification_dataloader import prepare_data as prepare_data_classification
-from solo.utils.pretrain_dataloader import (
+from HAPiCLR.utils.checkpointer import Checkpointer
+from HAPiCLR.utils.classification_dataloader import prepare_data as prepare_data_classification
+from HAPiCLR.utils.pretrain_dataloader import (
     prepare_dataloader,
     prepare_datasets,
     prepare_n_crop_transform,
     prepare_transform,
 )
 
-from solo.utils.value_scheduler import (
+from HAPiCLR.utils.value_scheduler import (
     Alpha_schedule,
     Beta_schedule,
     batch_size_schedule, 

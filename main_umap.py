@@ -22,11 +22,11 @@ import os
 from pathlib import Path
 import torch
 import torch.nn as nn
-from solo.args.setup import parse_args_umap
-from solo.methods import METHODS
-from solo.utils.auto_umap import OfflineUMAP
-from solo.utils.classification_dataloader import prepare_data
-from solo.utils.backbones import (
+from HAPiCLR.args.setup import parse_args_umap
+from HAPiCLR.methods import METHODS
+from HAPiCLR.utils.auto_umap import OfflineUMAP
+from HAPiCLR.utils.classification_dataloader import prepare_data
+from HAPiCLR.utils.backbones import (
     swin_base,
     swin_large,
     swin_small,
