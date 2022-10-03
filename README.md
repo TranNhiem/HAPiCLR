@@ -7,7 +7,7 @@
 
 
 <div align="center">
-  <img width="50%" alt="HARL Framework Illustration" src="images/HAPiCLR_framework.gif">
+  <img width="100%" alt="HARL Framework Illustration" src="images/HAPiCLR_framework.gif">
 </div>
 <div align="center">
   End-to-End HAPiCLR Framework (from <a href="">our blog here</a>).
