@@ -111,14 +111,9 @@ We opensourced total 8 pretrained models here, corresponding to those in Table 1
 
 |   Depth | Width   | SK    |   Param (M)  | Pretrained epochs| SSL pretrained learning_rate |Projection head MLP Dimension| Heuristic Mask| Linear eval  |
 |--------:|--------:|------:|--------:|-------------:|--------------:|--------:|-------------:|-------------:|
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X | False | 24 | 1000 |  0.5| 256 |Deep Learning mask| 73.6 |     
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 1000 |  0.3 | 256 |Deep Learning mask|  73.8 |   
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 1000 |  0.2 | 512 |Deep Learning mask| 74.0 |   
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 300 |  0.3 | 256 |Deep Learning mask| 69.4 |     
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 300 |  0.4 | 512 |Deep Learning mask| 70.7 |     
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 300 |  0.5 | 512 |Deep Learning mask| 71.4 | 
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 100 |  0. | 512 |DRFI  mask| 61.2 |     
-| [ResNet50 (1x)](https://drive.google.com/drive/folders/1oNkxwA-VixlnUBGgxVeHrcPcDmKHeND1?usp=sharing) | 1X  | False | 24 | 100 |  0.2 | 512 |Deep Learning mask| 62.0 | 
+| [ResNet50 (1x)]() | 1X | False | 24 | 100 |  0.5| 256 |Deep Learning mask| ## |     
+| [ResNet50 (1x)]() | 1X  | False | 24 | 100 |  0.3 | 256 |Deep Learning mask|  ## |   
+
 
 These checkpoints are stored in Google Drive Storage:
 
