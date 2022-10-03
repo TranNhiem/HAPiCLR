@@ -5,10 +5,9 @@
 
 <span style="color: red"><strong> </strong></span> This is offical implemenation of HAPiCLR framework</a>.
 
-<span style="color: red"><strong> </strong></span> Colabs for <a href=""> HAPiCLR framework </a> are added, see <a href="">here</a>.
 
 <div align="center">
-  <img width="50%" alt="HARL Framework Illustration" src="images/HAPiCLR_framework.png">
+  <img width="50%" alt="HARL Framework Illustration" src="images/HAPiCLR_framework.gif">
 </div>
 <div align="center">
   End-to-End HAPiCLR Framework (from <a href="">our blog here</a>).
