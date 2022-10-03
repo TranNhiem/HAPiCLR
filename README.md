@@ -139,13 +139,7 @@ Stay tune! The instructions will update soon
 `
 
 ## Other resources
-
-### Our *offical* implementations in Different Frameworks
-
-(Feel free to share your implementation by creating an issue)
-
-Implementations in Tensorflow 2:
-* [Official Implementation](https://github.com/TranNhiem/Heuristic_Attention_Representation_Learning_SSL_Tensorflow)
+update soon
 
 ## Known issues
 
