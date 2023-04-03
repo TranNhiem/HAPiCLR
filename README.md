@@ -1,6 +1,5 @@
 # HAPiCLR - Heuristic Attention Pixel-level Contrastive Loss Representation 
 
-<span style="color: red"><strong> </strong></span> (HAPiCLR <a href=""> Paper here</a>)
 
 
 <span style="color: red"><strong> </strong></span> This is offical implemenation of HAPiCLR framework</a>.
